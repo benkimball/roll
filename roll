@@ -1,0 +1,130 @@
+#!/usr/bin/env ruby -wKU
+
+require "YAML"
+rollfile = File.expand_path('~/.rolls.yaml')
+if File.exists?(rollfile)
+  named_rolls = File.open(rollfile) { |yf| YAML::load(yf) }
+else
+  named_rolls = {}
+end
+
+class Array
+  def random
+    self[rand(self.size)]
+  end
+end
+
+class Fixnum
+  def to_fudge
+    case self
+    when -1.0/0.0..-4 then "Terrible minus " + (self + 3).abs.to_s
+    when -3 then "Terrible"
+    when -2 then "Poor"
+    when -1 then "Mediocre"
+    when  0  then "Fair"
+    when  1  then "Good"
+    when  2  then "Great"
+    when  3  then "Superb"
+    when  4..1.0/0.0 then "Superb plus " + (self - 3).to_s
+    else raise "Could not convert Fixnum to fudge descriptor."
+    end
+  end
+end
+
+class DieRoller
+  def initialize(arg)
+    arg.split('/').each do |slice|
+     roll(slice)
+    end
+  end
+
+  def roll(arg)
+    pattern = /([1-9]\d*)d([1-9]\d*|F)([+-]?\d+)?/
+    exit unless arg =~ pattern
+    mdata = pattern.match(arg)
+    m = mdata[1].to_i
+    n = if mdata[2] == 'F'
+      mdata[2]
+    else
+      mdata[2].to_i
+    end
+    d = mdata[3].to_i
+
+    case n
+    when 'F'
+      # roll fudge dice
+      roll = dF(m, d)
+      puts roll[1].to_s + ' = ' + roll[0].to_s + " (" + roll[0].to_fudge + ")"
+    else
+      # roll standard dice
+      sum = d
+      rolls = []
+
+      m.times {
+        roll = rand(n) + 1
+        rolls.push(roll)
+        sum += roll
+      }
+      print rolls.join(', ') + ' => ' if (rolls.size > 1) or (d != 0)
+      puts sum
+    end
+  end
+
+  def dF(n, d = 0)
+    fudge_die = [
+      {:symbol => '+', :value => 1},
+      {:symbol => 'o', :value => 0},
+      {:symbol => '-', :value => -1}
+    ]
+    sum = d
+    str = []
+    n.times do
+      d = fudge_die.random
+      sum += d[:value]
+      str << d[:symbol]
+    end
+    [sum, str.join(', ')]
+  end
+end
+
+arg1 = ARGV[0] || '1d20'
+case arg1
+when "list"
+  filter = Regexp.new(ARGV[1] || ".*")
+  if named_rolls.size > 0
+    named_rolls.sort.each do |k, v|
+      puts "'#{k}' is #{v}" if filter =~ k
+    end
+  else
+    puts "Nothing known."
+  end
+when "learn"
+  exit unless name = ARGV[1]
+  exit unless spec = ARGV[2]
+  named_rolls[name] = spec
+  File.open(rollfile, 'w') do |out|
+    YAML.dump(named_rolls, out)
+  end
+  puts "learned '#{name}' = '#{spec}'"
+when "unlearn"
+  exit unless name = ARGV[1]
+  named_rolls.delete(name)
+  File.open(rollfile, 'w') do |out|
+    YAML.dump(named_rolls, out)
+  end
+  puts "unlearned '#{name}'"
+when "usage", "help", "?"
+  print <<USAGE
+Usage: roll rollspec[/rollspec[/rollspec...]]
+       rollspec: {n}d{m}[{+-p}]
+         {n} = number of dice
+         {m} = number of sides on die, or F for fudge dice
+         {+-p} = number to add or subtract from total
+`roll learn gun 4dF+2/3d6` => then can use `roll gun` to get roll 4dF+2/3d6
+`roll list` => output list of named rolls
+`roll unlearn gun` => remove "gun" from list of named rolls
+USAGE
+else
+  DieRoller.new(named_rolls[arg1] || arg1)
+end
+
