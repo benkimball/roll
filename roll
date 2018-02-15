@@ -1,8 +1,9 @@
-#!/usr/bin/env ruby -wKU
+#!/usr/bin/env ruby
+# 1.1, now with Ruby 2.4+ compatibility
 
 require "YAML"
 rollfile = File.expand_path('~/.rolls.yaml')
-if File.exists?(rollfile)
+if File.exist?(rollfile)
   named_rolls = File.open(rollfile) { |yf| YAML::load(yf) }
 else
   named_rolls = {}
@@ -14,7 +15,7 @@ class Array
   end
 end
 
-class Fixnum
+class Integer
   def to_fudge
     case self
     when -1.0/0.0..-4 then "Terrible minus " + (self + 3).abs.to_s
@@ -26,7 +27,7 @@ class Fixnum
     when  2  then "Great"
     when  3  then "Superb"
     when  4..1.0/0.0 then "Superb plus " + (self - 3).to_s
-    else raise "Could not convert Fixnum to fudge descriptor."
+    else raise "Could not convert Integer to fudge descriptor."
     end
   end
 end
@@ -127,4 +128,3 @@ USAGE
 else
   DieRoller.new(named_rolls[arg1] || arg1)
 end
-
